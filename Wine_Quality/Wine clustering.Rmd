@@ -1,0 +1,413 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+Data Cleaning & Visualization(Outliers)
+
+```{r}
+setwd("C:/Users/Edwyn/R")
+column.labels <- c("Region","Alcohol","Malic Acid","Ash","Alk","Magn","TotalPhenoles","Flavonoids","NonFL","Proanthocyanins","ColorInt","Hue","OD","Proline")
+
+wine <- read.csv("wine.csv", header = F)
+colnames(wine) <- column.labels
+
+wine.N <- subset(wine, select = -c(Region))
+
+#Inspect
+summary(wine.N)
+```
+
+Method 1 (Outlier Detector) - Bivariate Box Plot
+```{r}
+library(MVA)
+bvbox(wine.N[,c(1,7)], pch ="", xlab = "Alcohol", ylab = "Flavonoids", main = "Bivariate Boxplot of Alcohol vs Flavonoids")
+text(wine.N$Alcohol, wine.N$Flavonoids, labels = rownames(wine.N), cex = 0.7)
+
+bvbox(wine.N[,c(3,4)], pch ="", xlab = "Ash", ylab = "Alk", main = "Bivariate Boxplot of Ash vs Alk")
+text(wine.N$Ash, wine.N$Alk, labels = rownames(wine.N), cex = 0.7)
+
+bvbox(wine.N[,c(11,10)], pch ="", xlab = "Hue", ylab = "ColorInt", main = "Bivariate Boxplot of Hue vs ColorInt")
+text(wine.N$Hue, wine.N$ColorInt, labels = rownames(wine.N), cex = 0.7)
+```
+Outliers from method 1 - 116, 152, 160, 159, 26, 122, 74, 128, 14, 37, 60
+
+```{r}
+#Removed Outliers method 1
+o1 <- match(c(116, 152, 160, 159, 26, 122, 74, 128, 14, 37, 60),row.names(wine.N))
+
+cor(wine.N$Alcohol,wine.N$Flavonoids)
+cor(wine.N$Alcohol[-o1],wine.N$Flavonoids[-o1])
+
+cor(wine.N$Ash,wine.N$Alk)
+cor(wine.N$Ash[-o1],wine.N$Alk[-o1])
+
+cor(wine.N$Hue,wine.N$ColorInt)
+cor(wine.N$Hue[-o1],wine.N$ColorInt[-o1])
+```
+Analysis : In this method, we applied the b
+
+Method 2(Outlier Detector) - Mahalanobis and Chi-Sqr
+```{r}
+#install.packages("mvoutlier")
+library(mvoutlier)
+outliers <- aq.plot(wine.N, delta=qchisq(0.975, df = ncol(wine.N)),quan = 1/2)
+outliers
+```
+Outliers from method 2 - 159, 160, 178, 154, 152, 172, 167, 168, 173, 157, 176, 170, 165, 156, 174, 149, 177, 148, 151, 161, 150, 153, 12
+
+```{r}
+#Removed Outliers method 2
+o2 <- match(c(159, 160, 178, 154, 152, 172, 167, 168, 173, 157, 176, 170, 165, 156, 174, 149, 177, 148, 151, 161, 150, 153, 12),row.names(wine.N))
+
+cor(wine.N$Alcohol,wine.N$Flavonoids)
+cor(wine.N$Alcohol[-o2],wine.N$Flavonoids[-o2])
+
+cor(wine.N$Ash,wine.N$Alk)
+cor(wine.N$Ash[-o2],wine.N$Alk[-o2])
+
+cor(wine.N$Hue,wine.N$ColorInt)
+cor(wine.N$Hue[-o2],wine.N$ColorInt[-o2])
+```
+
+
+
+Dimensionality & Reduction (PCA & MDS)
+
+New set of data
+```{r}
+wine.N1 <- wine.N[-c(116, 152, 160, 159, 26, 122, 74, 128, 14, 37, 60),]
+wine.N2 <- wine.N[-c(159, 160, 178, 154, 152, 172, 167, 168, 173, 157, 176, 170, 165, 156, 174, 149, 177, 148, 151, 161, 150, 153, 12),]
+```
+
+PCA
+Outlier 1
+```{r}
+pca <- princomp(scale(wine.N1))
+summary(pca)
+plot(pca)
+biplot(pca)
+```
+
+Outlier 2
+```{r}
+pca <- princomp(scale(wine.N2))
+summary(pca)
+plot(pca)
+biplot(pca)
+```
+
+MDS
+Outlier 1 
+```{r}
+#Scaled distance Matrix
+wine.ds <- dist(scale(wine.N1[,1:13]))
+round(wine.ds,3)
+
+#Proportion of the Eigenvalues
+cmd1 <- cmdscale(wine.ds, k = 7, eig = TRUE)
+cumsum(cmd1$eig)/sum(cmd1$eig)
+
+#Multidimensional Scaling
+cmd2 <- cmdscale(wine.ds, k = 2, eig = TRUE)
+plot(cmd2$points[,1:2], pch = ".")
+text(cmd2$points[,1:2], labels = rownames(wine.N1), cex = 0.6)
+
+#Euclidean Distance
+wine.ds2 <- dist(wine.N1[,1:7])
+cmd3 <- cmdscale(wine.ds2, k = 2, eig = TRUE)
+plot(cmd3$points[,1:2], pch = ".")
+text(cmd3$points[,1:2], labels = rownames(wine.N1), cex = 0.6)
+
+#Correlation Distance
+cor <- cor(wine.N1[,1:13])
+cor
+
+cordist <- 1 - cor
+cordist
+
+#Multidimensional Scaling of Variables
+cmd4 <- cmdscale(cordist, k = 2, eig = TRUE)
+plot(cmd4$points[,1:2], pch = ".")
+text(cmd4$points[,1:2], labels = rownames(cordist), cex = 0.6)
+```
+
+Outlier 2
+```{r}
+#Scaled distance Matrix
+wine.ds <- dist(scale(wine.N2[,1:13]))
+round(wine.ds,3)
+
+#Proportion of the Eigenvalues
+cmd1 <- cmdscale(wine.ds, k = 7, eig = TRUE)
+cumsum(cmd1$eig)/sum(cmd1$eig)
+
+#Multidimensional Scaling
+cmd2 <- cmdscale(wine.ds, k = 2, eig = TRUE)
+plot(cmd2$points[,1:2], pch = ".")
+text(cmd2$points[,1:2], labels = rownames(wine.N2), cex = 0.6)
+
+#Euclidean Distance
+wine.ds2 <- dist(wine.N2[,1:7])
+cmd3 <- cmdscale(wine.ds2, k = 2, eig = TRUE)
+plot(cmd3$points[,1:2], pch = ".")
+text(cmd3$points[,1:2], labels = rownames(wine.N2), cex = 0.6)
+
+#Correlation Distance
+cor <- cor(wine.N2[,1:13])
+cor
+
+cordist <- 1 - cor
+cordist
+
+#Multidimensional Scaling of Variables
+cmd4 <- cmdscale(cordist, k = 2, eig = TRUE)
+plot(cmd4$points[,1:2], pch = ".")
+text(cmd4$points[,1:2], labels = rownames(cordist), cex = 0.6)
+```
+
+Cluster Analysis
+
+Hierarchical Clustering
+
+Outlier 1
+```{r}
+#distance matrix for correlation-distance
+d <- 1 - cor(wine.N1)
+d <- as.dist(d)
+
+#hierarchical clustering and plot of dendrogram
+wine.N1.hca <- hclust(d, method = "average")
+plot(wine.N1.hca, main = "Hierarchical Clustering Analysis of Gene Data - Average Linkage", xlab = "Sample")
+
+wine.N1.hcs <- hclust(d, method = "single")
+plot(wine.N1.hca, main = "Hierarchical Clustering Analysis of Gene Data - single Linkage", xlab = "Sample")
+
+wine.N1.hcc <- hclust(d, method = "complete")
+plot(wine.N1.hca, main = "Hierarchical Clustering Analysis of Gene Data - complete Linkage", xlab = "Sample")
+```
+
+Outlier 2
+```{r}
+#distance matrix for correlation-distance
+d <- 1 - cor(wine.N2)
+d <- as.dist(d)
+
+#hierarchical clustering and plot of dendrogram
+wine.N2.hca <- hclust(d, method = "average")
+plot(wine.N2.hca, main = "Hierarchical Clustering Analysis of Gene Data - Average Linkage", xlab = "Sample")
+
+wine.N2.hcs <- hclust(d, method = "single")
+plot(wine.N2.hca, main = "Hierarchical Clustering Analysis of Gene Data - single Linkage", xlab = "Sample")
+
+wine.N2.hcc <- hclust(d, method = "complete")
+plot(wine.N2.hca, main = "Hierarchical Clustering Analysis of Gene Data - complete Linkage", xlab = "Sample")
+```
+
+Estimation of Clusters using wgss function
+
+Outlier 1
+```{r}
+#Scale
+wine.N1 <- scale(wine.N1)
+
+#Number of Clusters
+plot.wgss <- function(mydata, maxc){
+wss <- numeric(maxc)
+for (i in 1:maxc){
+wss[i] <- kmeans(mydata, centers = i, nstart = 10)$tot.withinss
+}
+plot(1:maxc, wss, type = "b", xlab = "Number of Clusters",
+ylab = "Within Groups Sum of Squares", main = "Scree Plot")
+}
+
+plot.wgss(wine.N1,20)
+```
+
+Outlier 2
+```{r}
+#Scale
+wine.N2 <- scale(wine.N2)
+
+#Number of Clusters
+plot.wgss <- function(mydata, maxc){
+wss <- numeric(maxc)
+for (i in 1:maxc){
+wss[i] <- kmeans(mydata, centers = i, nstart = 10)$tot.withinss
+}
+plot(1:maxc, wss, type = "b", xlab = "Number of Clusters",
+ylab = "Within Groups Sum of Squares", main = "Scree Plot")
+}
+
+plot.wgss(wine.N2,20)
+```
+
+Finding the K-means for appropriate number of Clusters
+
+Outlier 1
+```{r}
+km.t <- kmeans(wine.N1, centers = 3)
+km.t$tot.withinss
+km <- kmeans(wine.N1, centers = 3, nstart = 10)
+km$tot.withinss
+wine.kmc <- kmeans(wine.N1, centers = 3 , nstart = 10) #Change centers to approciate number
+wine.kmc$cluster
+
+pca <- princomp(wine.N1) # How can we characterize the first and second principal components  
+plot(pca$scores[,1:2], col = km$cluster)
+table(km$cluster)
+
+#Interpreation of Clusters
+round(wine.kmc$centers,3) #Change number in respect to clusters
+```
+
+Outlier 2
+```{r}
+km.t <- kmeans(wine.N1, centers = 3)
+km.t$tot.withinss
+km <- kmeans(wine.N1, centers = 3, nstart = 10)
+km$tot.withinss
+wine.kmc <- kmeans(wine.N1, centers = 3 , nstart = 10) #Change centers to approciate number
+wine.kmc$cluster
+
+pca <- princomp(wine.N1) # How can we characterize the first and second principal components  
+plot(pca$scores[,1:2], col = km$cluster)
+table(km$cluster)
+
+#Interpreation of Clusters
+round(wine.kmc$centers,3) #Change number in respect to clusters
+```
+
+Model-Based Clustering of Wine Data
+
+Outlier 1
+```{r}
+wine.N1 <- wine[-c(116, 152, 160, 159, 26, 122, 74, 128, 14, 37, 60),]
+library(mclust)
+wine.mbc <- Mclust(wine.N1[,2:14], 3)
+table(wine.mbc$classification, wine.N1$Region)
+```
+```{r}
+#Model-Based Clustering Uncertainty
+plot(wine.mbc, what = "classification", dimens = c(1,13))
+wine.mbc$classification
+
+plot(wine.mbc, what = "uncertainty", dimens = c(1,13))
+wine.mbc$uncertainty
+```
+
+Outlier 2
+```{r}
+wine.N2 <- wine[-c(159, 160, 178, 154, 152, 172, 167, 168, 173, 157, 176, 170, 165, 156, 174, 149, 177, 148, 151, 161, 150, 153, 12),]
+library(mclust)
+wine.mbc <- Mclust(wine.N2[,2:14], 3)
+table(wine.mbc$classification, wine.N2$Region)
+```
+```{r}
+#Model-Based Clustering Uncertainty
+plot(wine.mbc, what = "classification", dimens = c(1,13))
+wine.mbc$classification
+
+plot(wine.mbc, what = "uncertainty", dimens = c(1,13))
+wine.mbc$uncertainty
+summary(wine.mbc)
+```
+
+
+EFA - CFA
+
+```{r}
+wine.N1 <- wine.N[-c(116, 152, 160, 159, 26, 122, 74, 128, 14, 37, 60),]
+wine.N2 <- wine.N[-c(159, 160, 178, 154, 152, 172, 167, 168, 173, 157, 176, 170, 165, 156, 174, 149, 177, 148, 151, 161, 150, 153, 12),]
+```
+
+Outlier 1
+```{r}
+#To Perform CFA
+#install.packages("sem")
+library(sem)
+
+#To Create cfa model
+#install.packages("lavaan")
+library(lavaan)
+
+#install.packages("semPlot")
+library(semPlot)
+
+wine.efa <- factanal(wine.N1,factors = 3)
+wine.efa
+load <- wine.efa$loadings[,1:2]
+plot(load)
+text(load,labels=names(wine.N1),cex=.7)
+wine.efa$loadings
+print(wine.efa$loadings,cut = 0.5)
+
+
+
+model <- 'Constituents =~ TotalPhenoles + a*Flavonoids + b*Proanthocyanins + c*Hue +e*OD  
+       	Flavour =~ Alcohol + a*ColorInt + b*Proline
+       	Inorganic Matter =~ Ash + a*Alk  
+      	 
+TotalPhenoles~~TotalPhenoles
+Flavonoids~~Flavonoids
+Proanthocyanins~~Proanthocyanins
+OD~~OD
+Alcohol~~Alcohol
+ColorInt~~ColorInt
+Proline~~Proline
+Hue~~Hue
+Ash~~Ash
+Alk~~Alk
+NonFL~~NonFL
+'
+wine.s <-scale(wine.N1)
+fit <- sem(model,data = wine.s, orthogonal=TRUE)
+summary(fit, fit.measures=TRUE, standardized=TRUE)
+fitMeasures(fit,c("agfi",'gfi','srmr','pvalue'))
+semPaths(fit,what="std", edge.color="black")
+```
+
+Outlier 2
+```{r}
+#To Perform CFA
+#install.packages("sem")
+library(sem)
+
+#To Create cfa model
+#install.packages("lavaan")
+library(lavaan)
+
+#install.packages("semPlot")
+library(semPlot)
+
+wine.efa <- factanal(wine.N2,factors = 3)
+wine.efa
+load <- wine.efa$loadings[,1:2]
+plot(load)
+text(load,labels=names(wine.N2),cex=.7)
+wine.efa$loadings
+print(wine.efa$loadings,cut = 0.5)
+
+
+
+model <- 'Constituents =~ TotalPhenoles + a*Flavonoids + b*Proanthocyanins + c*Hue +e*OD  
+       	Flavour =~ Alcohol + a*ColorInt + b*Proline
+       	Inorganic Matter =~ Ash + a*Alk  
+      	 
+TotalPhenoles~~TotalPhenoles
+Flavonoids~~Flavonoids
+Proanthocyanins~~Proanthocyanins
+OD~~OD
+Alcohol~~Alcohol
+ColorInt~~ColorInt
+Proline~~Proline
+Hue~~Hue
+Ash~~Ash
+Alk~~Alk
+NonFL~~NonFL
+'
+wine.s <-scale(wine.N2)
+fit <- sem(model,data = wine.s, orthogonal=TRUE)
+summary(fit, fit.measures=TRUE, standardized=TRUE)
+fitMeasures(fit,c("agfi",'gfi','srmr','pvalue'))
+semPaths(fit,what="std", edge.color="black")
+```
